@@ -1,4 +1,4 @@
-module github.com/ppondeu/utills
+module github.com/ppondeu/go-logz
 
 go 1.25.0
 
