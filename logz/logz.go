@@ -1,15 +1,31 @@
 package logz
 
 import (
+	"sync"
+
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
-var log *zap.Logger
+var (
+	log   *zap.Logger
+	mutex sync.Mutex
+)
 
-type Option func(*zap.Config)
+func initializeDefault() *zap.Logger {
+	cfg := zap.NewDevelopmentConfig()
+	cfg.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
+	l, err := cfg.Build(zap.AddCallerSkip(1))
+	if err != nil {
+		panic(err)
+	}
+	return l
+}
 
-func InitLog(serverMode string, opts ...Option) {
+func InitLog(serverMode string, opts ...func(*zap.Config)) {
+	mutex.Lock()
+	defer mutex.Unlock()
+
 	var cfg zap.Config
 
 	if serverMode == "development" {
@@ -25,51 +41,62 @@ func InitLog(serverMode string, opts ...Option) {
 		opt(&cfg)
 	}
 
-	var err error
-	log, err = cfg.Build(zap.AddCallerSkip(1))
+	l, err := cfg.Build(zap.AddCallerSkip(1))
 	if err != nil {
 		panic(err)
 	}
+
+	log = l
+}
+
+func getLogger() *zap.Logger {
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	if log == nil {
+		log = initializeDefault()
+	}
+	return log
 }
 
 func Info(message string, fields ...zapcore.Field) {
-	log.Info(message, fields...)
+	getLogger().Info(message, fields...)
 }
 
 func Debug(message string, fields ...zapcore.Field) {
-	log.Debug(message, fields...)
+	getLogger().Debug(message, fields...)
 }
 
 func Warn(message string, fields ...zapcore.Field) {
-	log.Warn(message, fields...)
+	getLogger().Warn(message, fields...)
 }
 
 func Error(message any, fields ...zapcore.Field) {
 	switch v := message.(type) {
 	case error:
-		log.Error(v.Error(), fields...)
+		getLogger().Error(v.Error(), fields...)
 	case string:
-		log.Error(v, fields...)
+		getLogger().Error(v, fields...)
 	}
 }
 
 func Fatal(message any, fields ...zapcore.Field) {
 	switch v := message.(type) {
 	case error:
-		log.Fatal(v.Error(), fields...)
+		getLogger().Fatal(v.Error(), fields...)
 	case string:
-		log.Fatal(v, fields...)
+		getLogger().Fatal(v, fields...)
 	}
 }
 
 func Infof(format string, args ...interface{}) {
-	log.Sugar().Infof(format, args...)
+	getLogger().Sugar().Infof(format, args...)
 }
 
 func Errorf(format string, args ...interface{}) {
-	log.Sugar().Errorf(format, args...)
+	getLogger().Sugar().Errorf(format, args...)
 }
 
 func Fatalf(format string, args ...interface{}) {
-	log.Sugar().Fatalf(format, args...)
+	getLogger().Sugar().Fatalf(format, args...)
 }
