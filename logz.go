@@ -7,21 +7,26 @@ import (
 
 var log *zap.Logger
 
+type Option func(*zap.Config)
 
-func InitLog(serverMode string) {
-	var config zap.Config
-	
+func InitLog(serverMode string, opts ...Option) {
+	var cfg zap.Config
+
 	if serverMode == "development" {
-		config = zap.NewDevelopmentConfig()
-		config.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
+		cfg = zap.NewDevelopmentConfig()
+		cfg.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
 	} else {
-		config = zap.NewProductionConfig()
-		config.EncoderConfig.TimeKey = "timestamp"
-		config.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+		cfg = zap.NewProductionConfig()
+		cfg.EncoderConfig.TimeKey = "timestamp"
+		cfg.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+	}
+
+	for _, opt := range opts {
+		opt(&cfg)
 	}
 
 	var err error
-	log, err = config.Build(zap.AddCallerSkip(1))
+	log, err = cfg.Build(zap.AddCallerSkip(1))
 	if err != nil {
 		panic(err)
 	}
@@ -33,6 +38,10 @@ func Info(message string, fields ...zapcore.Field) {
 
 func Debug(message string, fields ...zapcore.Field) {
 	log.Debug(message, fields...)
+}
+
+func Warn(message string, fields ...zapcore.Field) {
+	log.Warn(message, fields...)
 }
 
 func Error(message any, fields ...zapcore.Field) {
@@ -53,18 +62,14 @@ func Fatal(message any, fields ...zapcore.Field) {
 	}
 }
 
-func Fatalf(format string, args ...interface{}) {
-	log.Sugar().Fatalf(format, args...)
-}
-
-func Warn(message string, fields ...zapcore.Field) {
-	log.Warn(message, fields...)
+func Infof(format string, args ...interface{}) {
+	log.Sugar().Infof(format, args...)
 }
 
 func Errorf(format string, args ...interface{}) {
 	log.Sugar().Errorf(format, args...)
 }
 
-func Infof(format string, args ...interface{}) {
-	log.Sugar().Infof(format, args...)
+func Fatalf(format string, args ...interface{}) {
+	log.Sugar().Fatalf(format, args...)
 }
